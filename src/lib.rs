@@ -1,6 +1,15 @@
 mod scales;
-use num_bigint::{BigInt, Sign};
+use num_bigfloat::BigFloat;
+use num_bigint::{BigInt, ParseBigIntError, Sign};
 use scales::{DECIMALS, MAGNITUDES, ONE_TO_NINETEEN, TENS};
+
+/// Represents a number split into its integer and decimal parts.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct SplitNumber {
+    pub integer: Option<BigInt>,
+    pub decimal: Option<BigInt>,
+    pub decimal_places: usize,
+}
 
 /// Convert any number type to its name in English.
 pub trait ToEnglish<T: std::fmt::Display> {
@@ -15,29 +24,33 @@ impl<T: std::fmt::Display> ToEnglish<T> for T {
 
 /// Convert a number to its name in English (e.g. 60.212 -> "sixty and two hundred twelve thousandths")
 fn convert_number_to_english(number: f64) -> String {
-    let (before_decimal, after_decimal, decimal_places) = split_number(number);
+    let SplitNumber {
+        integer: before_decimal,
+        decimal: after_decimal,
+        decimal_places,
+    } = split_number(number);
 
     let mut result = String::new();
 
-    if let Some(mut before_decimal) = before_decimal {
+    if let Some(mut before_decimal) = before_decimal.clone() {
         // check the sign
-        match before_decimal.sign() {
-            Sign::Minus => {
-                result.push_str("negative ");
-                before_decimal = -before_decimal;
-            }
-            Sign::NoSign => {
-                result.push_str("zero");
-                return result;
-            }
-            Sign::Plus => (),
+        if let Sign::Minus = before_decimal.sign() {
+            result.push_str("negative ");
+            before_decimal = -before_decimal;
         }
         result.push_str(&convert_integer_to_english(before_decimal));
     }
 
     if let Some(after_decimal) = after_decimal {
-        result.push_str(" and ");
+        if before_decimal.is_some() {
+            println!("pushing and for number {}", number);
+            result.push_str(" and ");
+        }
         result.push_str(&convert_decimal_to_english(after_decimal, decimal_places));
+    }
+
+    if result.is_empty() {
+        result.push_str("zero");
     }
 
     result
@@ -72,7 +85,7 @@ fn convert_integer_to_english(number: BigInt) -> String {
     result
 }
 
-/// convert the decimal part of a number to its name in English (e.g. 60.212 -> "two hundred twelve thousandths")
+/// Converts the decimal part of a number to its name in English (e.g. 60.212 -> "two hundred twelve thousandths")
 fn convert_decimal_to_english(number: BigInt, decimal_places: usize) -> String {
     let mut result = String::new();
     let mut number = number;
@@ -144,20 +157,39 @@ fn convert_hundreds_to_english(number: BigInt) -> String {
 }
 
 /// Split a number into its integer and decimal parts.
-fn split_number(number: f64) -> (Option<BigInt>, Option<BigInt>, usize) {
+fn split_number(number: f64) -> SplitNumber {
     let string = number.to_string();
     let split = string.split('.').collect::<Vec<&str>>();
-    let before_decimal = split[0].parse::<BigInt>().unwrap();
+    let before_decimal = split[0].parse::<BigInt>();
     let after_decimal = if split.len() > 1 {
-        Some(split[1].parse::<BigInt>().unwrap())
+        let d = split[1]
+            .parse::<BigInt>()
+            .expect("Failed to parse decimal part of number");
+        if d > BigInt::from(0) {
+            Ok(d)
+        } else {
+            Err(BigInt::from(0))
+        }
     } else {
-        None
+        Err(BigInt::from(0))
     };
     let mut decimal_places = 0;
-    if after_decimal.is_some() {
+    if after_decimal.is_ok() {
         decimal_places = split[1].len();
     }
-    (Some(before_decimal), after_decimal, decimal_places)
+
+    let integer = match before_decimal {
+        Ok(val) => Some(val),
+        Err(_) => None,
+    };
+
+    let x = SplitNumber {
+        integer,
+        decimal: after_decimal.ok(),
+        decimal_places,
+    };
+    println!("{:?}", x);
+    x
 }
 
 #[cfg(test)]
@@ -223,5 +255,8 @@ mod tests {
 
         let negative_zero_point_zero = (-0.0).to_english();
         assert_eq!(negative_zero_point_zero, "zero");
+
+        let fifty_six_thousandths = 0.056.to_english();
+        assert_eq!(fifty_six_thousandths, "fifty-six thousandths");
     }
 }
