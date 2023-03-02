@@ -1,5 +1,5 @@
 [package]
-name = "num-in-english"
+name = "num2english"
 version = "0.1.0"
 edition = "2021"
 

@@ -4,6 +4,19 @@ use num_bigint::{BigInt, ParseBigIntError, Sign};
 use scales::{DECIMALS, MAGNITUDES, ONE_TO_NINETEEN, TENS};
 
 /// Represents a number split into its integer and decimal parts.
+///
+/// # Examples
+/// ```
+/// use num2english::SplitNumber;
+/// let number = SplitNumber {
+///    integer: Some(60.into()),
+///   decimal: Some(212.into()),
+///   decimal_places: 3,
+/// };
+/// assert_eq!(number.integer, Some(60.into()));
+/// assert_eq!(number.decimal, Some(212.into()));
+/// assert_eq!(number.decimal_places, 3);
+/// ```
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct SplitNumber {
     pub integer: Option<BigInt>,
@@ -179,7 +192,13 @@ fn split_number(number: f64) -> SplitNumber {
     }
 
     let integer = match before_decimal {
-        Ok(val) => Some(val),
+        Ok(val) => {
+            if val == BigInt::from(0) {
+                None
+            } else {
+                Some(val)
+            }
+        }
         Err(_) => None,
     };
 
@@ -188,7 +207,7 @@ fn split_number(number: f64) -> SplitNumber {
         decimal: after_decimal.ok(),
         decimal_places,
     };
-    println!("{:?}", x);
+    println!("{x:?}");
     x
 }
 
