@@ -92,7 +92,7 @@ where
     fn to_english(&self) -> String {
         let string = self.to_string();
         if string.contains('e') {
-            panic!("Scientific notation is not supported at this time.");
+            return "Error: Scientific notation is not supported at this time.".to_string();
         }
         convert_number_to_english(string)
     }
