@@ -2,9 +2,19 @@
 name = "num2english"
 version = "0.1.0"
 edition = "2021"
+authors = ["Travis Aaron Wagner"]
+description = "A trait to convert numbers to English words."
+homepage = "https://github.com/trvswgnr/num2english"
+keywords = ["string", "english", "mathematics", "numerics", "bignum"]
+categories = [ "traits" ]
+license = "MIT"
+repository = "https://github.com/trvswgnr/num2english"
+readme = "README.md"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+num-bigint = { version = "0.4.3", default-features = false }
+num-traits = { version = "0.2.15", default-features = false }
+
+[dev-dependencies]
 num-bigfloat = "1.6.2"
-num-bigint = "0.4.3"
