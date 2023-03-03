@@ -1,6 +1,42 @@
+#![no_std]
+#![deny(missing_docs)]
+
+//! A trait for converting a number to its equivalent representation in English.
+//!
+//! A number is split into its integer and decimal parts with via the [`SplitNumber`] struct.
+//! A [`SplitNumber`] is represented as an Option<[`BigInt`]> for the integer and decimal parts, and a usize for the number of decimal places.
+//!
+//! Converting a number to its English representation is done via the [`NumberToEnglish`] trait.
+//! The [`NumberToEnglish`] trait is implemented for all types that implement the [`Num`] trait.
+//!
+//! **_Scientific notation is not supported at this time._**
+//!
+//! # Example
+//!
+//! ```
+//! use num2english::NumberToEnglish;
+//! assert_eq!(60.to_english(), "sixty");
+//! assert_eq!(60.212.to_english(), "sixty and two hundred twelve thousandths");
+//! assert_eq!((-60.212).to_english(), "negative sixty and two hundred twelve thousandths");
+//! ```
+//!
+//! [`SplitNumber`]: struct.SplitNumber.html
+//! [`NumberToEnglish`]: trait.NumberToEnglish.html
+//! [`Num`]: https://docs.rs/num/latest/num/trait.Num.html
+//! [`BigInt`]: https://docs.rs/num-bigint/latest/num_bigint/struct.BigInt.html
+//!
+
+extern crate alloc;
+
 mod scales;
-use num_bigfloat::BigFloat;
-use num_bigint::{BigInt, ParseBigIntError, Sign};
+
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
+use core::fmt::Display;
+use num_bigint::{BigInt, Sign};
+use num_traits::Num;
 use scales::{DECIMALS, MAGNITUDES, ONE_TO_NINETEEN, TENS};
 
 /// Represents a number split into its integer and decimal parts.
@@ -19,33 +55,59 @@ use scales::{DECIMALS, MAGNITUDES, ONE_TO_NINETEEN, TENS};
 /// ```
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct SplitNumber {
+    /// The integer part of the number.
     pub integer: Option<BigInt>,
+    /// The decimal part of the number.
     pub decimal: Option<BigInt>,
+    /// The number of decimal places.
     pub decimal_places: usize,
 }
 
 /// Convert any number type to its name in English.
-pub trait ToEnglish<T: std::fmt::Display> {
+///
+/// # Examples
+/// ```
+/// use num2english::NumberToEnglish;
+/// assert_eq!(60.to_english(), "sixty");
+/// assert_eq!(60.212.to_english(), "sixty and two hundred twelve thousandths");
+/// assert_eq!((-60.212).to_english(), "negative sixty and two hundred twelve thousandths");
+/// ```
+pub trait NumberToEnglish<T>
+where
+    T: Num + Display,
+{
+    /// Convert a number to its English representation.
+    ///
+    /// **_Scientific notation is not supported... yet._**
     fn to_english(&self) -> String;
 }
 
-impl<T: std::fmt::Display> ToEnglish<T> for T {
+impl<T> NumberToEnglish<T> for T
+where
+    T: Num + Display,
+{
     fn to_english(&self) -> String {
-        convert_number_to_english(self.to_string().parse::<f64>().unwrap())
+        let string = self.to_string();
+        if string.contains('e') {
+            panic!("Scientific notation is not supported at this time.");
+        }
+        convert_number_to_english(string)
     }
 }
 
 /// Convert a number to its name in English (e.g. 60.212 -> "sixty and two hundred twelve thousandths")
-fn convert_number_to_english(number: f64) -> String {
+fn convert_number_to_english(number: String) -> String {
     let SplitNumber {
         integer: before_decimal,
         decimal: after_decimal,
         decimal_places,
-    } = split_number(number);
+    } = split_number(&number);
 
     let mut result = String::new();
 
-    if let Some(mut before_decimal) = before_decimal.clone() {
+    let has_integer = before_decimal.is_some();
+
+    if let Some(mut before_decimal) = before_decimal {
         // check the sign
         if let Sign::Minus = before_decimal.sign() {
             result.push_str("negative ");
@@ -55,8 +117,7 @@ fn convert_number_to_english(number: f64) -> String {
     }
 
     if let Some(after_decimal) = after_decimal {
-        if before_decimal.is_some() {
-            println!("pushing and for number {}", number);
+        if has_integer {
             result.push_str(" and ");
         }
         result.push_str(&convert_decimal_to_english(after_decimal, decimal_places));
@@ -104,9 +165,9 @@ fn convert_decimal_to_english(number: BigInt, decimal_places: usize) -> String {
     let mut number = number;
 
     // get the suffix from the number of digits (e.g. 1 -> "thousandth", 2 -> "hundredth", 3 -> "tenths", etc...)
-    let mut suffix = DECIMALS[decimal_places - 1].to_owned();
+    let mut suffix = DECIMALS[decimal_places - 1].to_string();
     if number > BigInt::from(1) {
-        suffix = suffix.to_owned() + "s";
+        suffix += "s";
     }
 
     let mut magnitude = 0;
@@ -169,46 +230,33 @@ fn convert_hundreds_to_english(number: BigInt) -> String {
     result
 }
 
-/// Split a number into its integer and decimal parts.
-fn split_number(number: f64) -> SplitNumber {
-    let string = number.to_string();
-    let split = string.split('.').collect::<Vec<&str>>();
-    let before_decimal = split[0].parse::<BigInt>();
-    let after_decimal = if split.len() > 1 {
-        let d = split[1]
-            .parse::<BigInt>()
-            .expect("Failed to parse decimal part of number");
-        if d > BigInt::from(0) {
-            Ok(d)
-        } else {
-            Err(BigInt::from(0))
-        }
+fn parse_big_int(n: &str) -> Option<BigInt> {
+    let string = n.to_string();
+    let bigint = BigInt::parse_bytes(string.as_bytes(), 10).unwrap_or_else(|| BigInt::from(0));
+    if bigint == BigInt::from(0) {
+        None
     } else {
-        Err(BigInt::from(0))
-    };
-    let mut decimal_places = 0;
-    if after_decimal.is_ok() {
-        decimal_places = split[1].len();
+        Some(bigint)
     }
+}
 
-    let integer = match before_decimal {
-        Ok(val) => {
-            if val == BigInt::from(0) {
-                None
-            } else {
-                Some(val)
-            }
-        }
-        Err(_) => None,
+/// Split a number into its integer and decimal parts.
+fn split_number(string: &str) -> SplitNumber {
+    let split = string.split('.').collect::<Vec<&str>>();
+    let integer = parse_big_int(split[0]);
+    let decimal = if split.len() > 1 {
+        parse_big_int(split[1])
+    } else {
+        None
     };
 
-    let x = SplitNumber {
+    let decimal_places = if split.len() > 1 { split[1].len() } else { 0 };
+
+    SplitNumber {
         integer,
-        decimal: after_decimal.ok(),
+        decimal,
         decimal_places,
-    };
-    println!("{x:?}");
-    x
+    }
 }
 
 #[cfg(test)]
@@ -216,7 +264,43 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_number_names() {
+    fn test_u8() {
+        for i in 1..20 {
+            let name = i.to_english();
+            assert_eq!(name, ONE_TO_NINETEEN[i - 1]);
+        }
+
+        let two_hundred_fifty_five: u8 = 255;
+        assert_eq!(
+            two_hundred_fifty_five.to_english(),
+            "two hundred fifty-five"
+        );
+    }
+
+    #[test]
+    fn test_i64() {
+        let negative_one = (-1_i64).to_english();
+        assert_eq!(negative_one, "negative one");
+
+        let negative_one_hundred = (-100_i64).to_english();
+        assert_eq!(negative_one_hundred, "negative one hundred");
+
+        let negative_one_hundred_twenty_three = (-123_i64).to_english();
+        assert_eq!(
+            negative_one_hundred_twenty_three,
+            "negative one hundred twenty-three"
+        );
+
+        let negative_one_hundred_twenty_three_thousand_four_hundred_fifty_six =
+            (-123_456_i64).to_english();
+        assert_eq!(
+            negative_one_hundred_twenty_three_thousand_four_hundred_fifty_six,
+            "negative one hundred twenty-three thousand four hundred fifty-six"
+        );
+    }
+
+    #[test]
+    fn test_random() {
         let one_million = 1_000_000.to_english();
         assert_eq!(one_million, "one million");
 
@@ -277,5 +361,21 @@ mod tests {
 
         let fifty_six_thousandths = 0.056.to_english();
         assert_eq!(fifty_six_thousandths, "fifty-six thousandths");
+    }
+
+    #[test]
+    fn test_bigint() {
+        let bigint_num = BigInt::parse_bytes(b"1234", 10).unwrap();
+        let bigint_num_name = bigint_num.to_english();
+        assert_eq!(bigint_num_name, "one thousand two hundred thirty-four");
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_big_float_panic() {
+        use num_bigfloat::BigFloat;
+        let bigfloat_num = BigFloat::from(1234.5678);
+        let bigfloat_num_name = bigfloat_num.to_english();
+        assert_eq!(bigfloat_num_name, "one thousand two hundred thirty-four and five thousand six hundred seventy-eight hundredths");
     }
 }
