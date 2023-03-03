@@ -2,6 +2,9 @@
 
 This Rust crate provides the `NumberToEnglish` trait which can be used to convert any* number to its string representation in English.
 
+It uses the [Conway-Wechsler system](http://www.mrob.com/pub/math/largenum.html#conway-wechsler) for converting numbers to words.
+Other systems might be added in the future.
+
 ## Usage
 
 Add this to your Cargo.toml:
