@@ -19,6 +19,9 @@
 //! assert_eq!(60.212.to_english(), "sixty and two hundred twelve thousandths");
 //! assert_eq!((-60.212).to_english(), "negative sixty and two hundred twelve thousandths");
 //! ```
+//! ## Compatibility
+//!
+//! This crate is compatible with `no_std` environments.
 //!
 //! [`SplitNumber`]: struct.SplitNumber.html
 //! [`NumberToEnglish`]: trait.NumberToEnglish.html
@@ -26,18 +29,18 @@
 //! [`BigInt`]: https://docs.rs/num-bigint/latest/num_bigint/struct.BigInt.html
 //!
 
-extern crate alloc;
-
 mod scales;
 
-use alloc::{
-    string::{String, ToString},
-    vec::Vec,
-};
 use core::fmt::Display;
 use num_bigint::{BigInt, Sign};
 use num_traits::Num;
 use scales::{DECIMALS, MAGNITUDES, ONE_TO_NINETEEN, TENS};
+
+extern crate alloc;
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 
 /// Represents a number split into its integer and decimal parts.
 ///
