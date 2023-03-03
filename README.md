@@ -14,13 +14,13 @@ num2english = { git = "https://github.com/trvswgnr/num2english", branch = "main"
 Then add this to your crate root:
 
 ```rust
-use num2english::num2english;
+use num2english::NumberToEnglish;
 ```
 
 ## Examples
 
 ```rust
-use num2english::num2english;
+use num2english::NumberToEnglish;
 
 assert_eq!(6.000_052.to_english(), "six and fifty-two millionths");
 assert_eq!(52.000_001.to_english(), "fifty-two and one millionth");
